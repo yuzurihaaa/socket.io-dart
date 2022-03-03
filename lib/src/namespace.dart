@@ -28,11 +28,11 @@ List<String> events = [
 List<String> flags = ['json', 'volatile'];
 
 class Namespace extends EventEmitter {
-  String name;
-  Server server;
-  List<Socket> sockets = [];
-  Map<String, Socket> connected = {};
-  List<Function> fns = [];
+  final String name;
+  final Server server;
+  final List<Socket> sockets = [];
+  final Map<String, Socket> connected = {};
+  final List<Function> fns = [];
   int ids = 0;
   List<String> rooms = [];
   Map flags = {};
@@ -134,7 +134,7 @@ class Namespace extends EventEmitter {
           // fires before user-set events to prevent state order
           // violations (such as a disconnection before the connection
           // logic is complete)
-          socket.onconnect();
+          socket.onConnect();
           if (fn != null) fn(socket);
 
           // fire user-set events

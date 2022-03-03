@@ -11,7 +11,7 @@
 import 'dart:collection' show HashMap;
 
 /// Handler type for handling the event emitted by an [EventEmitter].
-typedef EventHandler<T> = dynamic Function(T data);
+typedef EventHandler = void Function(dynamic data);
 
 /// Generic event emitting and handling.
 class EventEmitter {

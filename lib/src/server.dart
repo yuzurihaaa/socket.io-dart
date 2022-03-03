@@ -14,6 +14,7 @@ import 'package:logging/logging.dart';
 import 'package:socket_io/src/client.dart';
 import 'package:socket_io/src/engine/engine.dart';
 import 'package:socket_io/src/namespace.dart';
+import 'package:socket_io/src/util/event_emitter.dart';
 import 'package:socket_io_common/src/parser/parser.dart';
 import 'package:stream/stream.dart';
 
@@ -39,7 +40,7 @@ class Server {
   String? _path;
   String _adapter = 'default';
   StreamServer? httpServer;
-  Engine? engine;
+  SocketEngine? engine;
   Encoder encoder = Encoder();
   Future<bool>? _ready;
 
@@ -65,10 +66,10 @@ class Server {
   /// @param {http.Server|Number|Object} http server, port or options
   /// @param {Object} options
   /// @api public
-  Server({server, Map? options}) {
+  Server({dynamic server, Map<String, dynamic>? options}) {
     options ??= {};
     path(options.containsKey('path') ? options['path'] : '/socket.io');
-    serveClient(false != options['serveClient']);
+    serveClient(options['serveClient'] != false);
     adapter = options.containsKey('adapter') ? options['adapter'] : 'default';
     origins(options.containsKey('origins') ? options['origins'] : '*:*');
     sockets = of('/');
@@ -242,8 +243,8 @@ class Server {
 
     if (srv is num) {
       _logger.fine('creating http server and binding to $srv');
-      var port = srv.toInt();
-      var server = StreamServer();
+      final port = srv.toInt();
+      final server = StreamServer();
       await server.start(port: port);
 //      HttpServer.bind(InternetAddress.ANY_IP_V4, port).then((
 //          HttpServer server) {
@@ -254,8 +255,8 @@ class Server {
 ////                    response.close();
 ////                });
 
-      var completer = Completer();
-      var connectPacket = {'type': CONNECT, 'nsp': '/'};
+      final completer = Completer();
+      final connectPacket = {'type': CONNECT, 'nsp': '/'};
       encoder.encode(connectPacket, (encodedPacket) {
         // the CONNECT packet will be merged with Engine.IO handshake,
         // to reduce the number of round trips
@@ -263,7 +264,7 @@ class Server {
 
         _logger.fine('creating engine.io instance with opts $opts');
         // initialize engine
-        engine = Engine.attach(server, opts);
+        engine = SocketEngine.attach(server, opts);
 
         // attach static file serving
 //        if (self._serveClient) self.attachServe(srv);
@@ -287,7 +288,7 @@ class Server {
 
         _logger.fine('creating engine.io instance with opts $opts');
         // initialize engine
-        engine = Engine.attach(srv, opts);
+        engine = SocketEngine.attach(srv, opts);
 
         // attach static file serving
 //        if (self._serveClient) self.attachServe(srv);
@@ -355,9 +356,9 @@ class Server {
   /// @param {engine.Server} engine.io (or compatible) server
   /// @return {Server} self
   /// @api public
-  Server bind(Engine engine) {
+  Server bind(SocketEngine engine) {
     this.engine = engine;
-    this.engine!.on('connection', onconnection);
+    this.engine!.on('connection', onConnection);
     return this;
   }
 
@@ -366,7 +367,7 @@ class Server {
   /// @param {engine.Socket} socket
   /// @return {Server} self
   /// @api public
-  Server onconnection(conn) {
+  Server onConnection(conn) {
     _logger.fine('incoming connection with id ${conn.id}');
     var client = Client(this, conn);
     client.connect('/');
@@ -378,7 +379,7 @@ class Server {
   /// @param {String} nsp name
   /// @param {Function} optional, nsp `connection` ev handler
   /// @api public
-  Namespace of(name, [fn]) {
+  Namespace of(String name, [Function(dynamic)? fn]) {
     if (name.toString()[0] != '/') {
       name = '/' + name;
     }
@@ -419,8 +420,8 @@ class Server {
   Namespace compress(_) => sockets.compress(_);
 
   // emitter
-  void emit(event, data) => sockets.emit(event, data);
-  void on(event, handler) => sockets.on(event, handler);
-  void once(event, handler) => sockets.once(event, handler);
-  void off(event, handler) => sockets.off(event, handler);
+  void emit(String event, data) => sockets.emit(event, data);
+  void on(String event, EventHandler handler) => sockets.on(event, handler);
+  void once(String event, EventHandler handler) => sockets.once(event, handler);
+  void off(String event, EventHandler handler) => sockets.off(event, handler);
 }

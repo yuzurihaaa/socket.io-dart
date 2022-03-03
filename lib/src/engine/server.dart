@@ -38,7 +38,7 @@ const Map<int, String> ServerErrorMessages = {
   4: 'Forbidden'
 };
 
-class Server extends Engine {
+class EngineServer extends SocketEngine {
   static final Logger _logger = Logger('socket_io:engine.Server');
   Map clients = {};
   int clientsCount = 0;
@@ -57,7 +57,7 @@ class Server extends Engine {
   dynamic initialPacket;
   final Uuid _uuid = Uuid();
 
-  Server([Map? opts]) {
+  EngineServer([Map? opts]) {
     opts = opts ?? {};
 
     pingTimeout = opts['pingTimeout'] ?? 60000;
@@ -281,7 +281,7 @@ class Server extends Engine {
       sendErrorMessage(req, ServerErrors.BAD_REQUEST);
       return;
     }
-    var socket = Socket(id, this, transport, connect);
+    var socket = EngineSocket(id, this, transport, connect);
 
     if (cookie?.isNotEmpty == true) {
       transport.on('headers', (headers) {

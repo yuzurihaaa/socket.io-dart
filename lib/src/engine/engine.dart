@@ -11,9 +11,9 @@
 import 'package:socket_io/src/engine/server.dart';
 import 'package:socket_io/src/util/event_emitter.dart';
 
-class Engine extends EventEmitter {
-  static Engine attach(server, [Map? options]) {
-    var engine = Server(options);
+class SocketEngine extends EventEmitter {
+  static SocketEngine attach(server, [Map? options]) {
+    var engine = EngineServer(options);
     engine.attachTo(server, options);
     return engine;
   }

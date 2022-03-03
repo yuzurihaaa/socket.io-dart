@@ -11,6 +11,7 @@
 import 'dart:io';
 import 'package:socket_io/src/adapter/adapter.dart';
 import 'package:socket_io/src/client.dart';
+import 'package:socket_io/src/engine/socket.dart';
 import 'package:socket_io_common/src/parser/parser.dart';
 import 'package:socket_io/src/namespace.dart';
 import 'package:socket_io/src/server.dart';
@@ -48,27 +49,27 @@ const List EVENTS = [
 
 class Socket extends EventEmitter {
   // ignore: undefined_class
-  Namespace nsp;
-  Client client;
+  final Namespace namespaces;
+  final Client client;
   late Server server;
   late Adapter adapter;
   late String id;
   late HttpRequest request;
-  var conn;
+  late EngineSocket conn;
   Map roomMap = {};
-  List roomList = [];
+  List<String> roomList = [];
   Map acks = {};
   bool connected = true;
   bool disconnected = false;
-  Map? handshake;
+  Map<String, dynamic>? handshake;
   Map<String, bool>? flags;
 
   // a data store for each socket.
   Map data = {};
 
-  Socket(this.nsp, this.client, query) {
-    server = nsp.server;
-    adapter = nsp.adapter;
+  Socket(this.namespaces, this.client, query) {
+    server = namespaces.server;
+    adapter = namespaces.adapter;
     id = client.id;
     request = client.request;
     conn = client.conn;
@@ -78,7 +79,7 @@ class Socket extends EventEmitter {
   /// Builds the `handshake` BC object
   ///
   /// @api private
-  Map buildHandshake(query) {
+  Map<String, dynamic> buildHandshake(query) {
     final buildQuery = () {
       var requestQuery = request.uri.queryParameters;
       //if socket-specific query exist, replace query strings in requestQuery
@@ -145,8 +146,8 @@ class Socket extends EventEmitter {
               'Callbacks are not supported when broadcasting');
         }
 
-        acks['${nsp.ids}'] = ack;
-        packet['id'] = '${nsp.ids++}';
+        acks['${namespaces.ids}'] = ack;
+        packet['id'] = '${namespaces.ids++}';
       }
 
       packet['type'] = binary ? BINARY_EVENT : EVENT;
@@ -203,7 +204,7 @@ class Socket extends EventEmitter {
   void packet(packet, [opts]) {
     // ignore preEncoded = true.
     if (packet is Map) {
-      packet['nsp'] = nsp.name;
+      packet['nsp'] = namespaces.name;
     }
     opts = opts ?? {};
     opts['compress'] = false != opts['compress'];
@@ -216,7 +217,7 @@ class Socket extends EventEmitter {
   /// @param {Function} optional, callback
   /// @return {Socket} self
   /// @api private
-  Socket join(room, [fn]) {
+  Socket join(String room, [Function(dynamic)? fn]) {
 //    debug('joining room %s', room);
     if (roomMap.containsKey(room)) {
       if (fn != null) fn(null);
@@ -237,7 +238,7 @@ class Socket extends EventEmitter {
   /// @param {Function} optional, callback
   /// @return {Socket} self
   /// @api private
-  Socket leave(room, fn) {
+  Socket leave(String room, dynamic Function(dynamic)? fn) {
 //    debug('leave room %s', room);
     adapter.del(id, room, ([err]) {
       if (err != null) return fn?.call(err);
@@ -262,9 +263,9 @@ class Socket extends EventEmitter {
   ///
   /// @api private
 
-  void onconnect() {
+  void onConnect() {
 //    debug('socket connected - writing packet');
-    nsp.connected[id] = this;
+    namespaces.connected[id] = this;
     join(id);
     packet(<dynamic, dynamic>{'type': CONNECT});
   }
@@ -274,29 +275,24 @@ class Socket extends EventEmitter {
   /// @param {Object} packet
   /// @api private
 
-  void onpacket(packet) {
+  void onPacket(packet) {
 //    debug('got packet %j', packet);
     switch (packet['type']) {
       case EVENT:
         onevent(packet);
         break;
-
       case BINARY_EVENT:
         onevent(packet);
         break;
-
       case ACK:
         onack(packet);
         break;
-
       case BINARY_ACK:
         onack(packet);
         break;
-
       case DISCONNECT:
         ondisconnect();
         break;
-
       case ERROR:
         emit('error', packet['data']);
     }
@@ -388,11 +384,11 @@ class Socket extends EventEmitter {
 //    debug('closing socket - reason %s', reason);
     emit('disconnecting', reason);
     leaveAll();
-    nsp.remove(this);
+    namespaces.remove(this);
     client.remove(this);
     connected = false;
     disconnected = true;
-    nsp.connected.remove(id);
+    namespaces.connected.remove(id);
     emit('disconnect', reason);
   }
 

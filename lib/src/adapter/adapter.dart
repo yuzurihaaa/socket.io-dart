@@ -14,7 +14,7 @@ import 'package:socket_io_common/src/parser/parser.dart';
 import 'package:socket_io/src/util/event_emitter.dart';
 
 abstract class Adapter {
-  Map nsps = {};
+  Map namespaces = {};
   Map<String, _Room> rooms = {};
   Map<String, Map> sids = {};
 
@@ -35,7 +35,7 @@ abstract class Adapter {
 
 class _MemoryStoreAdapter extends EventEmitter implements Adapter {
   @override
-  Map nsps = {};
+  Map namespaces = {};
   @override
   Map<String, _Room> rooms = {};
 

@@ -20,10 +20,10 @@ import 'package:socket_io/src/util/event_emitter.dart';
 /// Client class (abstract).
 ///
 /// @api private
-class Socket extends EventEmitter {
+class EngineSocket extends EventEmitter {
   static final Logger _logger = Logger('socket_io:engine.Socket');
-  String id;
-  Server server;
+  final String id;
+  final EngineServer server;
   Transport transport;
   bool upgrading = false;
   bool upgraded = false;
@@ -38,7 +38,7 @@ class Socket extends EventEmitter {
   Timer? upgradeTimeoutTimer;
   Timer? pingTimeoutTimer;
 
-  Socket(this.id, this.server, this.transport, this.connect) {
+  EngineSocket(this.id, this.server, this.transport, this.connect) {
     // Cache IP since it might not be in the req later
     remoteAddress = connect.request.connectionInfo!.remoteAddress;
 
@@ -345,7 +345,7 @@ class Socket extends EventEmitter {
   /// @return {Socket} for chaining
   /// @api public
   void send(data, options, [callback]) => write(data, options, callback);
-  Socket write(data, options, [callback]) {
+  EngineSocket write(data, options, [callback]) {
     sendPacket('message', data: data, options: options, callback: callback);
     return this;
   }

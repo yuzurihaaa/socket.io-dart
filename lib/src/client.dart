@@ -15,14 +15,14 @@ import 'package:socket_io_common/src/parser/parser.dart';
 import 'package:socket_io/src/server.dart';
 
 class Client {
-  Server server;
-  Socket conn;
-  dynamic id;
-  dynamic request;
-  Encoder encoder = Encoder();
-  Decoder decoder = Decoder();
-  List sockets = [];
-  Map nsps = {};
+  final Server server;
+  final EngineSocket conn;
+  final dynamic id;
+  final dynamic request;
+  final Encoder encoder = Encoder();
+  final Decoder decoder = Decoder();
+  final List sockets = [];
+  final Map namespaces = {};
   List<String> connectBuffer = [];
   final Logger _logger = Logger('socket_io:Client');
 
@@ -62,7 +62,7 @@ class Client {
       return;
     }
     var nsp = server.of(name);
-    if ('/' != name && !nsps.containsKey('/')) {
+    if ('/' != name && !namespaces.containsKey('/')) {
       connectBuffer.add(name);
       return;
     }
@@ -70,7 +70,7 @@ class Client {
     var self = this;
     nsp.add(this, query, (socket) {
       self.sockets.add(socket);
-      self.nsps[nsp.name] = socket;
+      self.namespaces[nsp.name] = socket;
 
       if ('/' == nsp.name && self.connectBuffer.isNotEmpty) {
         self.connectBuffer.forEach(self.connect);
@@ -99,9 +99,9 @@ class Client {
   void remove(socket) {
     var i = sockets.indexOf(socket);
     if (i >= 0) {
-      var nsp = sockets[i].nsp.name;
+      var nsp = sockets[i].namespaces.name;
       sockets.removeAt(i);
-      nsps.remove(nsp);
+      namespaces.remove(nsp);
     } else {
       _logger.fine('ignoring remove for ${socket.id}');
     }
@@ -175,9 +175,9 @@ class Client {
       final uri = Uri.parse(nsp);
       connect(uri.path, uri.queryParameters);
     } else {
-      var socket = nsps[packet['nsp']];
+      var socket = namespaces[packet['nsp']];
       if (socket != null) {
-        socket.onpacket(packet);
+        socket.onPacket(packet);
       } else {
         _logger.fine('no socket for namespace packet.nsp');
       }
