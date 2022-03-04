@@ -47,8 +47,8 @@ class PollingTransport extends Transport {
     }
   }
 
-  final Map<SocketConnect, Function> _reqCleanups = {};
-  final Map<SocketConnect, Function> _reqCloses = {};
+  final Map<SocketConnect, void Function()> _reqCleanups = {};
+  final Map<SocketConnect, void Function()> _reqCloses = {};
 
   /// The client sends a request awaiting for us to send data.
   ///
@@ -154,7 +154,7 @@ class PollingTransport extends Transport {
       res.headers.clear();
       // text/html is required instead of text/plain to avoid an
       // unwanted download dialog on certain user-agents (GH-43)
-      self.headers(connect, headers).forEach((key, value) {
+      self.onHeaders(connect, headers).forEach((key, value) {
         res.headers.set(key, value);
       });
       res.write('ok');
@@ -248,87 +248,88 @@ class PollingTransport extends Transport {
     });
   }
 
+  int _getContentLength(dynamic data) {
+    return data is String ? utf8.encode(data).length : data.length;
+  }
+
   /// Performs the write.
   ///
   /// @api private
-  void doWrite(data, options, [callback]) {
-    var self = this;
-
+  void doWrite(
+    dynamic data,
+    Map<String, dynamic> options, [
+    void Function()? callback,
+  ]) {
     // explicit UTF-8 is required for pages not served under utf
-    var isString = data is String;
-    var contentType =
-        isString ? 'text/plain; charset=UTF-8' : 'application/octet-stream';
+    final contentType = data is String
+        ? 'text/plain; charset=UTF-8'
+        : 'application/octet-stream';
 
-    final headers = <String, dynamic>{'Content-Type': contentType};
+    final headers = <String, dynamic>{
+      HttpHeaders.contentTypeHeader: contentType,
+    };
 
-    var respond = (data) {
-      headers[HttpHeaders.contentLengthHeader] =
-          data is String ? utf8.encode(data).length : data.length;
-      var res = self.connect!.response;
+    final onRespond = (dynamic data) {
+      headers[HttpHeaders.contentLengthHeader] = _getContentLength(data);
+      final res = connect!.response;
 
       // If the status code is 101 (aka upgrade), then
       // we assume the WebSocket transport has already
       // sent the response and closed the socket
-      if (res.statusCode != 101) {
-        res.statusCode = 200;
+      if (res.statusCode != HttpStatus.switchingProtocols) {
+        res.statusCode = HttpStatus.ok;
 
-        res.headers.clear(); // remove all default headers.
-        this.headers(connect!, headers).forEach((k, v) {
+        res.headers.clear();
+        onHeaders(connect!, headers).forEach((k, v) {
           res.headers.set(k, v);
         });
         try {
           if (data is String) {
             res.write(data);
-            connect!.close();
           } else {
             if (headers.containsKey(HttpHeaders.contentEncodingHeader)) {
               res.add(data);
             } else {
               res.write(String.fromCharCodes(data));
             }
-            connect!.close();
           }
+          connect!.close();
         } catch (e) {
-          var fn = _reqCloses.remove(connect);
-          if (fn != null) fn();
+          final onClose = _reqCloses.remove(connect);
+          onClose?.call();
           rethrow;
         }
       }
-      callback();
+      callback?.call();
     };
 
     if (httpCompression == null || options['compress'] != true) {
-      respond(data);
-      return;
+      return onRespond(data);
     }
 
-    var len = isString ? utf8.encode(data).length : data.length;
-    if (len < httpCompression?['threshold']) {
-      respond(data);
-      return;
+    if (_getContentLength(data) < httpCompression?['threshold']) {
+      return onRespond(data);
     }
 
-    var encodings =
-        connect!.request.headers.value(HttpHeaders.acceptEncodingHeader);
-    var hasGzip = encodings!.contains('gzip');
-    if (!hasGzip && !encodings.contains('deflate')) {
-      respond(data);
-      return;
+    final encoding = connect?.request.headers.value(
+      HttpHeaders.acceptEncodingHeader,
+    );
+    final isGzip = encoding?.contains('gzip') == true;
+    final isDeflate = encoding?.contains('deflate') == true;
+    if (!isGzip && !isDeflate) {
+      return onRespond(data);
     }
-    var encoding = hasGzip ? 'gzip' : 'deflate';
-//    this.compress(data, encoding, (err, data) {
-//      if (err != null) {
-//        self.req.response..statusCode = 500..close();
-//        callback(err);
-//        return;
-//      }
 
-    headers[HttpHeaders.contentEncodingHeader] = encoding;
-    respond(hasGzip
-        ? gzip.encode(utf8.encode(
-            data is List ? String.fromCharCodes(data as List<int>) : data))
-        : data);
-//    });
+    final encodingType = isGzip ? 'gzip' : 'deflate';
+
+    headers[HttpHeaders.contentEncodingHeader] = encodingType;
+    return onRespond(
+      isGzip
+          ? gzip.encode(utf8.encode(
+              data is List ? String.fromCharCodes(data as List<int>) : data,
+            ))
+          : data,
+    );
   }
 
   /// Closes the transport.
@@ -372,7 +373,10 @@ class PollingTransport extends Transport {
   /// @param {http.IncomingMessage} request
   /// @param {Object} extra headers
   /// @api private
-  Map headers(SocketConnect connect, [Map? headers]) {
+  Map<String, dynamic> onHeaders(
+    SocketConnect connect, [
+    Map<String, dynamic>? headers,
+  ]) {
     headers = headers ?? {};
 
     // prevent XSS warnings on IE

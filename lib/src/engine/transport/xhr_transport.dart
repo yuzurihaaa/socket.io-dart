@@ -22,8 +22,8 @@ class XHRTransport extends PollingTransport {
   void onRequest(SocketConnect connect) {
     var req = connect.request;
     if ('OPTIONS' == req.method) {
-      var res = req.response;
-      var headers = this.headers(connect);
+      final res = req.response;
+      final headers = onHeaders(connect);
       headers['Access-Control-Allow-Headers'] = 'Content-Type';
       headers.forEach((key, value) {
         res.headers.set(key, value);
@@ -42,7 +42,10 @@ class XHRTransport extends PollingTransport {
   /// @param {Object} extra headers
   /// @api private
   @override
-  Map headers(SocketConnect connect, [Map? headers]) {
+  Map<String, dynamic> onHeaders(
+    SocketConnect connect, [
+    Map<String, dynamic>? headers,
+  ]) {
     headers = headers ?? {};
     var req = connect.request;
     if (req.headers.value('origin') != null) {
@@ -51,6 +54,6 @@ class XHRTransport extends PollingTransport {
     } else {
       headers['Access-Control-Allow-Origin'] = '*';
     }
-    return super.headers(connect, headers);
+    return super.onHeaders(connect, headers);
   }
 }
