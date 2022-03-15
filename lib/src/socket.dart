@@ -56,7 +56,7 @@ class Socket extends EventEmitter {
   late String id;
   late HttpRequest request;
   late EngineSocket conn;
-  Map roomMap = {};
+  Map rooms = {};
   List<String> roomList = [];
   Map acks = {};
   bool connected = true;
@@ -219,14 +219,14 @@ class Socket extends EventEmitter {
   /// @api private
   Socket join(String room, [Function(dynamic)? fn]) {
 //    debug('joining room %s', room);
-    if (roomMap.containsKey(room)) {
+    if (rooms.containsKey(room)) {
       if (fn != null) fn(null);
       return this;
     }
     adapter.add(id, room, ([err]) {
       if (err != null) return fn?.call(err);
 //      _logger.info('joined room %s', room);
-      roomMap[room] = room;
+      rooms[room] = room;
       if (fn != null) fn(null);
     });
     return this;
@@ -243,7 +243,7 @@ class Socket extends EventEmitter {
     adapter.del(id, room, ([err]) {
       if (err != null) return fn?.call(err);
 //      _logger.info('left room %s', room);
-      roomMap.remove(room);
+      rooms.remove(room);
       fn?.call(null);
     });
     return this;
@@ -255,7 +255,7 @@ class Socket extends EventEmitter {
 
   void leaveAll() {
     adapter.delAll(id);
-    roomMap = {};
+    rooms = {};
   }
 
   /// Called by `Namespace` upon succesful
